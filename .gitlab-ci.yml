@@ -1,0 +1,48 @@
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+
+test:
+  stage: test
+  image: docker:stable
+  services:
+    - docker:dind
+  before_script:
+    - docker build -t myapp:test .
+  script:
+    - echo "Running unit tests..."
+    # Replace the following command with your actual unit testing command
+    - docker run myapp:test npm test
+    - echo "Running static security tests..."
+    # Integrate your static security testing tool here, e.g., using a Docker image for the tool
+
+build:
+  stage: build
+  image: docker:stable
+  services:
+    - docker:dind
+  script:
+    - echo "Building Docker image..."
+    - docker build -t myapp:$IMAGE_TAG .
+    - docker tag myapp:$IMAGE_TAG registry.gitlab.com/your_project_path/myapp:latest
+    - docker tag myapp:$IMAGE_TAG registry.gitlab.com/your_project_path/myapp:$IMAGE_TAG
+    - echo "Pushing to GitLab Container Registry..."
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push registry.gitlab.com/your_project_path/myapp:latest
+    - docker push registry.gitlab.com/your_project_path/myapp:$IMAGE_TAG
+
+deploy_to_azure:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli
+  script:
+    - echo "Deploying to Azure..."
+    - az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+    - az account set --subscription $AZURE_SUBSCRIPTION_ID
+    - az webapp config container set --name $AZURE_APP_NAME --resource-group $AZURE_RESOURCE_GROUP --docker-custom-image-name registry.gitlab.com/your_project_path/myapp:$IMAGE_TAG --docker-registry-server-url $CI_REGISTRY --docker-registry-server-user $CI_REGISTRY_USER --docker-registry-server-password $CI_REGISTRY_PASSWORD
+    - echo "Deployment successful!"
+  only:
+    - master
