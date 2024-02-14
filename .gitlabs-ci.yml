@@ -1,0 +1,48 @@
+stages:
+  - test
+  - build
+  - docker_build
+  - deploy
+
+variables:
+  BINARY_NAME: "asset-tracking-svc_unix"
+  IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  AZURE_REGISTRY_URL: your_acr_name.azurecr.io  # Replace with your actual ACR URL
+
+test:
+  stage: test
+  script:
+    - make test-api
+    # Add any additional test steps here.
+
+build:
+  stage: build
+  script:
+    - make build-api
+    # The binary is built and placed in the build/ directory with the name 'asset-tracking-svc_unix'
+    - mv build/$BINARY_NAME .
+    - zip $BINARY_NAME.zip $BINARY_NAME
+    # The binary is now archived in a zip file in the root directory
+
+docker_build:
+  stage: docker_build
+  script:
+    - docker build -t $AZURE_REGISTRY_URL/$BINARY_NAME:$IMAGE_TAG -f docker/Dockerfile .
+    - docker tag $AZURE_REGISTRY_URL/$BINARY_NAME:$IMAGE_TAG $AZURE_REGISTRY_URL/$BINARY_NAME:latest
+    - docker login $AZURE_REGISTRY_URL -u $AZURE_REGISTRY_USERNAME -p $AZURE_REGISTRY_PASSWORD
+    - docker push $AZURE_REGISTRY_URL/$BINARY_NAME:$IMAGE_TAG
+    - docker push $AZURE_REGISTRY_URL/$BINARY_NAME:latest
+  # Only push images for branches or tags, not for every commit
+  only:
+    - branches
+    - tags
+
+deploy_to_azure:
+  stage: deploy
+  script:
+    - az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+    - az account set --subscription $AZURE_SUBSCRIPTION_ID
+    # Use the az CLI to deploy the binary zip file to Azure Web App
+    - az webapp deploy --resource-group $AZURE_RESOURCE_GROUP --name $AZURE_APP_NAME --src-path $BINARY_NAME.zip
+  only:
+    - master
