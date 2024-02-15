@@ -1,0 +1,62 @@
+stages:
+  - test
+  - build
+  - docker-build
+  - deploy
+
+variables:
+  # Docker / Azure Variables
+  AZURE_REGISTRY_URL: "myregistry.azurecr.io"
+  AZURE_APP_SERVICE_NAME: "myappservice"
+  AZURE_RESOURCE_GROUP: "myresourcegroup"
+  # General
+  IMAGE_NAME: "$AZURE_REGISTRY_URL/$CI_PROJECT_PATH:$CI_COMMIT_SHORT_SHA"
+
+before_script:
+  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+
+test:
+  stage: test
+  script:
+    - echo "Running Go tests..."
+    - cd backend && go test ./...
+    - echo "Running React tests..."
+    - cd ../frontend && npm install && npm test
+  only:
+    - branches
+
+build:
+  stage: build
+  script:
+    - echo "Placeholder for any required build steps not covered by Docker"
+  only:
+    - branches
+
+docker-build:
+  stage: docker-build
+  image: docker:19.03
+  services:
+    - docker:19.03-dind
+  script:
+    - echo "Building Docker image..."
+    - docker build -t $IMAGE_NAME .
+    - echo "Logging into Azure Container Registry..."
+    - docker login $AZURE_REGISTRY_URL -u $AZURE_REGISTRY_USERNAME -p $AZURE_REGISTRY_PASSWORD
+    - echo "Pushing Docker image to Azure Container Registry..."
+    - docker push $IMAGE_NAME
+  only:
+    - master
+
+deploy:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli
+  script:
+    - az login --service-principal -u $AZURE_APP_ID -p $AZURE_PASSWORD --tenant $AZURE_TENANT_ID
+    - az acr login --name $AZURE_REGISTRY_NAME
+    - az webapp config container set --name $AZURE_APP_SERVICE_NAME --resource-group $AZURE_RESOURCE_GROUP --docker-custom-image-name $IMAGE_NAME --docker-registry-server-url https://$AZURE_REGISTRY_URL
+  only:
+    - master
