@@ -60,3 +60,6 @@ deploy:
     - az webapp config container set --name $AZURE_APP_SERVICE_NAME --resource-group $AZURE_RESOURCE_GROUP --docker-custom-image-name $IMAGE_NAME --docker-registry-server-url https://$AZURE_REGISTRY_URL
   only:
     - master
+
+
+    https://www.programonaut.com/how-to-deploy-azure-container-apps-with-gitlab-ci-cd/
