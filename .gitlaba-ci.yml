@@ -63,3 +63,4 @@ deploy:
 
 
     https://www.programonaut.com/how-to-deploy-azure-container-apps-with-gitlab-ci-cd/
+    https://circleci.com/blog/deploy-dockerized-go-app-to-azure/
