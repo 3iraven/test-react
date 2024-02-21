@@ -154,3 +154,46 @@ git add "$VERSION_FILE"
 git commit -m "chore: bump version to $NEW_VERSION"
 git push
 
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+
+stages:
+  - test_backend
+  - test_frontend
+  - build
+  - bump_version
+  - docker-build
+  - test
+
+# Define jobs for test_backend, test_frontend, and build as you already have...
+
+bump_version_job:
+  stage: bump_version
+  script:
+    - chmod +x scripts/version_bump.sh
+    - ./scripts/version_bump.sh
+  only:
+    - main
+
+docker-build:
+  image: docker:cli
+  stage: docker-build
+  services:
+    - docker:dind
+  variables:
+    DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE/asset-tracking-svc:$CI_COMMIT_REF_SLUG
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker build --pull -t "$DOCKER_IMAGE_NAME" -f docker/Dockerfile .
+    - docker push "$DOCKER_IMAGE_NAME"
+    - if [[ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]]; then
+        docker tag "$DOCKER_IMAGE_NAME" "$CI_REGISTRY_IMAGE/asset-tracking-svc:latest";
+        docker push "$CI_REGISTRY_IMAGE/asset-tracking-svc:latest";
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH
+      exists:
+        - docker/Dockerfile
+
