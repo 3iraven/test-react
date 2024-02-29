@@ -197,16 +197,19 @@ docker-build:
       exists:
         - docker/Dockerfile
 
-deploy_t:
+deploy_to_acr:
   stage: deploy
   image: docker:latest
   services:
     - docker:dind
   script:
-    - docker login $ACR_LOGIN_SERVER -u $ACR_USERNAME -p $ACR_PASSWORD
-    - docker tag $DOCKER_IMAGE_NAME $ACR_LOGIN_SERVER/myapp:$CI_COMMIT_REF_NAME
-    - docker push $ACR_LOGIN_SERVER/myapp:$CI_COMMIT_REF_NAME
+    - echo $ACR_PASSWORD > acr_password.txt
+    - docker login $ACR_LOGIN_SERVER --username $ACR_USERNAME --password-stdin < acr_password.txt
+    - docker tag $DOCKER_IMAGE_NAME $ACR_LOGIN_SERVER/asset-tracking-svc:$CI_COMMIT_REF_NAME
+    - docker push $ACR_LOGIN_SERVER/asset-tracking-svc:$CI_COMMIT_REF_NAME
+    - rm -f acr_password.txt
   only:
     - main
   environment:
     name: production
+
