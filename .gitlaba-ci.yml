@@ -213,3 +213,38 @@ deploy_to_acr:
   environment:
     name: production
 
+
+
+
+
+deploy_to_acr:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    # Create acr_env.txt and write the ACR credentials to it
+    - echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" > acr_env.txt
+    - echo "ACR_USERNAME=$ACR_USERNAME" >> acr_env.txt
+    - echo "ACR_PASSWORD=$ACR_PASSWORD" >> acr_env.txt
+    # Use the credentials from acr_env.txt to login to ACR
+    - source acr_env.txt && docker login $ACR_LOGIN_SERVER --username $ACR_USERNAME --password $ACR_PASSWORD
+    # Tag and push the Docker image
+    - docker tag $DOCKER_IMAGE_NAME $ACR_LOGIN_SERVER/asset-tracking-svc:$CI_COMMIT_REF_NAME
+    - docker push $ACR_LOGIN_SERVER/asset-tracking-svc:$CI_COMMIT_REF_NAME
+    # Remove the acr_env.txt file immediately after its use
+    - rm -f acr_env.txt
+  only:
+    - main
+  environment:
+    name: production
+
+
+
+
+
+
+ACR_LOGIN_SERVER=myregistry.azurecr.io
+ACR_USERNAME=myAcrUsername
+ACR_PASSWORD=myAcrPassword
+
