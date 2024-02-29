@@ -197,3 +197,16 @@ docker-build:
       exists:
         - docker/Dockerfile
 
+deploy_t:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login $ACR_LOGIN_SERVER -u $ACR_USERNAME -p $ACR_PASSWORD
+    - docker tag $DOCKER_IMAGE_NAME $ACR_LOGIN_SERVER/myapp:$CI_COMMIT_REF_NAME
+    - docker push $ACR_LOGIN_SERVER/myapp:$CI_COMMIT_REF_NAME
+  only:
+    - main
+  environment:
+    name: production
